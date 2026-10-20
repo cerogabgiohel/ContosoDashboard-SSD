@@ -8,6 +8,12 @@
 **Source**: [Stakeholder requirements](../../StakeholderDocs/document-upload-and-management-feature.md)
 **Governance**: [ContosoDashboard Constitution v1.0.0](../../.specify/memory/constitution.md)
 
+## Clarifications
+
+### Session 2026-10-20
+
+- Q: When two people change the same document, what happens if the second person tries to save using an outdated version? → A: Option A: reject stale edits, replacements, and deletions; preserve the committed change and require refresh and a new attempt.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Upload and Retrieve My Documents (Priority: P1)
@@ -62,6 +68,9 @@ A document owner updates descriptive information, replaces the current file, or 
 5. **Given** a Team Lead and a document uploaded by a current member of the lead's department in any category other than Personal Files, **When** the lead views, downloads, edits metadata, replaces the file, or confirms deletion, **Then** the operation is permitted subject to the standard validation and confirmation rules (FR-015, FR-023 through FR-026).
 6. **Given** a Team Lead and another department member's Personal Files document with no independent access grant, **When** the lead attempts discovery, viewing, download, metadata editing, replacement, or deletion, **Then** the operation is denied without revealing the document's metadata or content (FR-012, FR-015).
 7. **Given** a Personal Files document shared with a Team Lead who has no independent maintenance permission, **When** the lead reads, downloads, or requests a supported preview, **Then** access is permitted through the share, but metadata editing, replacement, and deletion remain denied (FR-015, FR-029).
+8. **Given** two authorized maintainers who opened the same document state, **When** one commits a change and the other submits an edit, file replacement, or confirmed deletion based on the older state, **Then** the second operation is rejected without changing the accepted metadata, content, shares, or task references, and the user is asked to refresh and make a new attempt (FR-042).
+9. **Given** a replacement still undergoing validation or malware checking, **When** another authorized operation changes or deletes the document before the replacement completes, **Then** the stale replacement cannot overwrite the newer state or recreate a deleted document (FR-024, FR-027, FR-042).
+10. **Given** a stale edit whose actor has also lost access to the document, **When** the edit is submitted, **Then** it is denied without exposing the newer metadata or content through a conflict message (FR-012, FR-013, FR-042).
 
 ---
 
@@ -126,6 +135,7 @@ An administrator reviews document activity and reports on uploaded document type
 - Changing a category cannot be used to bypass access rules: the actor MUST already have permission before the change. Moving a document into Personal Files removes the Team Lead department-management grant on the next operation; moving it out restores that grant only for leads of the uploader's current department. Independent ownership, project, sharing, and administrator permissions are evaluated separately (FR-012, FR-015).
 - A deleted or newly inaccessible document is absent from subsequent search, preview, dashboard, attachment, and shared-document views; stale notifications do not grant access (FR-012, FR-027).
 - Cancelled or failed deletion leaves the document unchanged and does not claim permanent removal. Successful deletion retains only the activity evidence, not the file content (FR-026, FR-027, FR-037).
+- Concurrent metadata edits, replacements, and deletions MUST NOT silently overwrite accepted changes: only an operation based on the current document state may commit. Stale attempts are rejected, preserve the latest accepted state, and require refresh and an explicit new attempt; an operation against a deleted document MUST NOT recreate it. Current authorization is checked without revealing inaccessible changes (FR-012, FR-042).
 - A failed notification does not falsely report delivery or turn a completed upload/share into an apparently missing document; recipients can still discover an effective share or project document through the relevant view (FR-007, FR-019, FR-030, FR-036).
 - A task without an associated project accepts personal attachments only when the user can access both the task and document; a cross-project attachment is rejected without silently reassigning an existing document (FR-032, FR-033).
 - Empty lists, filters, or searches display a clear no-results state without revealing inaccessible-document counts (FR-012, FR-017 through FR-020).
@@ -175,10 +185,12 @@ An administrator reviews document activity and reports on uploaded document type
 - **FR-039**: Administrator reports MUST summarize upload counts by file type, upload counts/rankings by uploader, and document access frequencies by document, user, and time based on recorded activities, including historical activity for deleted documents.
 - **FR-040**: Core document workflows, including required malware checking, MUST be usable in a prepared local training environment without an internet connection, cloud account, or external service. They MUST use existing dashboard identities, role/project boundaries, and in-app notifications, and MUST remain explicitly training-only.
 - **FR-041**: The feature MUST distinguish empty/no-result states, validation errors, access denial, and operational failures through clear user-facing outcomes without exposing unauthorized document details.
+- **FR-042**: Metadata edits, file replacements, and confirmed deletions MUST be based on the current document state when committed. If another operation has changed or deleted that state since it was obtained for the attempted mutation, the system MUST reject the stale attempt without changing or recreating the latest accepted document state. An authorized user MUST receive a conflict outcome requesting refresh and an explicit new attempt, not silent overwrite or automatic replay. Permission checks MUST use current authorization and MUST NOT expose inaccessible metadata or content through conflict handling. Replacement validation or malware checking MUST NOT allow an older state to overwrite a later committed change.
 
 ### Key Entities *(include if feature involves data)*
 
 - **Document**: One managed work document with stable identity, original uploader and upload time, current file, original/display filename, size, type, title, description, category, optional tags, and optional project.
+- **Document State**: The current accepted metadata and file for a document. Edits, replacements, and deletions are tied to the state on which the user acted; a competing committed change makes that earlier state stale without creating user-visible version history (FR-042).
 - **Category**: One of the six named organizational categories; not an independent grant of access.
 - **Document Share**: An explicit read-only grant from an owner or administrator to a named user or department team for one document.
 - **User and Team**: Existing dashboard identities and roles; a team is the user's current department for sharing and Team Lead scope.
@@ -203,6 +215,7 @@ An administrator reviews document activity and reports on uploaded document type
 - **SC-010**: No confirmed unauthorized document access incidents occur during the three-month pilot; passing training checks MUST NOT be presented as production certification.
 - **SC-011**: Administrator report counts and rankings agree exactly with a known acceptance activity set for uploads, downloads, deletions, and shares, including deleted-document history.
 - **SC-012**: All core acceptance workflows pass with the training environment disconnected from the internet after initial preparation, without requiring a cloud account.
+- **SC-013**: In acceptance cases pairing metadata edits, file replacements, and confirmed deletions against the same initial document state, no stale attempt succeeds after a competing change commits. The newer accepted state remains intact, deleted documents are not recreated, and authorized users receive a refresh-and-retry outcome without silently losing accepted changes.
 
 ### Assumptions and Dependencies
 
